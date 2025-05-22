@@ -5,9 +5,21 @@ import hashlib
 import json
 import os
 import time
-from cryptography.fernet import Fernet
-from base64 import urlsafe_b64encode
-from hashlib import pbkdf2_hmac
+import sys
+
+# Check for required packages
+try:
+    from cryptography.fernet import Fernet
+    from base64 import urlsafe_b64encode
+    from hashlib import pbkdf2_hmac
+except ImportError as e:
+    st.error("""
+    Required packages are missing. Please install them using:
+    ```
+    pip install -r requirements.txt
+    ```
+    """)
+    st.stop()
 
 # Constants
 DATA_FILE = "secure_data.json"
@@ -15,11 +27,15 @@ SALT = b"secure_salt_value"
 LOCKOUT_DURATION = 60
 
 # Page configuration
-st.set_page_config(
-    page_title="Secure Data Encryption System",
-    page_icon="🔒",
-    layout="wide"
-)
+try:
+    st.set_page_config(
+        page_title="Secure Data Encryption System",
+        page_icon="🔒",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+except Exception as e:
+    st.error("Error configuring page. Please refresh the page.")
 
 # Custom CSS
 st.markdown("""
@@ -52,34 +68,58 @@ if "lockout_time" not in st.session_state:
     st.session_state.lockout_time = 0
 
 def load_data():
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r") as f:
-            return json.load(f)   
-    return {}
+    try:
+        if os.path.exists(DATA_FILE):
+            with open(DATA_FILE, "r") as f:
+                return json.load(f)   
+        return {}
+    except Exception as e:
+        st.error("Error loading data. Please try again.")
+        return {}
 
 def save_data(data):
-    with open(DATA_FILE, "w") as f:
-        json.dump(data, f, indent=4)  
+    try:
+        with open(DATA_FILE, "w") as f:
+            json.dump(data, f, indent=4)
+    except Exception as e:
+        st.error("Error saving data. Please try again.")
 
 def generate_key(passkey):
-    key = pbkdf2_hmac('sha256', passkey.encode(), SALT, 100000)
-    return urlsafe_b64encode(key)
+    try:
+        key = pbkdf2_hmac('sha256', passkey.encode(), SALT, 100000)
+        return urlsafe_b64encode(key)
+    except Exception as e:
+        st.error("Error generating key. Please try again.")
+        return None
 
 def hash_password(password):
-    return hashlib.pbkdf2_hmac('sha256', password.encode(), SALT, 100000).hex()  
+    try:
+        return hashlib.pbkdf2_hmac('sha256', password.encode(), SALT, 100000).hex()
+    except Exception as e:
+        st.error("Error hashing password. Please try again.")
+        return None
 
 def encrypt_text(text, key):
-    cipher = Fernet(generate_key(key))
-    return cipher.encrypt(text.encode()).decode()
+    try:
+        cipher = Fernet(generate_key(key))
+        return cipher.encrypt(text.encode()).decode()
+    except Exception as e:
+        st.error("Error encrypting text. Please check your input and try again.")
+        return None
 
 def decrypt_text(encrypted_text, key):
     try:
         cipher = Fernet(generate_key(key))
         return cipher.decrypt(encrypted_text.encode()).decode()
-    except:
+    except Exception as e:
         return None
 
-stored_data = load_data()
+# Load stored data
+try:
+    stored_data = load_data()
+except Exception as e:
+    st.error("Error initializing application. Please refresh the page.")
+    st.stop()
 
 # Navigation
 st.sidebar.title("🔒 Secure Data System")
